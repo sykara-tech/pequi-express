@@ -1,0 +1,10 @@
+Pequi Express — versão final (somente boletim)
+- Único serviço: emissão e impressão de boletim escolar
+- Sem menções públicas a SIAP/SIGEP (textos neutros: "sistema", "carregando sistema...")
+- Brasão oficial embutido (brasao-goias.svg)
+- Loading com ícone de sincronização girando
+- Animações: entrada de seções, cards, linhas do boletim, botão com brilho, stats
+- Layout do boletim no padrão institucional (A4 paisagem na impressão)
+
+- Arquivos soltos (sem pastas css/js/assets).
+- Sem animação na logo.

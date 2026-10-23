@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pequi Express - Portal de Boletim Escolar do Estado de Goiás">
+  <title>Pequi Express | Portal de Boletim Escolar</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- VLibras -->
+  <div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+  <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+  <script>
+    new window.VLibras.Widget('https://vlibras.gov.br/app');
+  </script>
+
+  <!-- Loading Overlay — ícone de sincronização girando -->
+  <div id="loadingOverlay" class="loading-overlay" role="alertdialog" aria-live="assertive" aria-busy="true">
+    <div class="loader sys-loading-box" role="status">
+      <div class="sys-sync-icon" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="52" height="52">
+          <path fill="#1a5f9e" d="M32 8a24 24 0 0 1 20.8 12.2l-5.2 3A18 18 0 0 0 32 14v8l12-10L32 2v6zm0 48a24 24 0 0 1-20.8-12.2l5.2-3A18 18 0 0 0 32 50v-8L20 52l12 10v-6z"/>
+        </svg>
+      </div>
+      <p id="loadingMsg">Aguarde...</p>
+      <p class="sys-loading-hint">Carregando sistema...</p>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="container header-inner">
+      <div class="brand" onclick="goHome()">
+        <img src="brasao-goias.svg" alt="Brasão do Estado de Goiás" class="brasao" width="48" height="64">
+        <div class="brand-text">
+          <span class="brand-title">Pequi Express</span>
+          <span class="brand-sub">Portal de Boletim Escolar</span>
+        </div>
+      </div>
+      <nav class="nav" id="mainNav">
+        <a href="#" class="nav-link active" data-section="home">Início</a>
+        <a href="#" class="nav-link" data-section="home">Boletim</a>
+        <a href="#" class="nav-link" data-section="sobre">Sobre</a>
+        <a href="#" class="nav-link" data-section="ajuda">Ajuda</a>
+      </nav>
+      <div class="header-actions">
+        <button class="btn-icon" id="themeToggle" title="Alternar tema" aria-label="Alternar tema">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <div id="userBadge" class="user-badge hidden">
+          <span id="userNameShort"></span>
+          <button class="btn-logout" onclick="logout()" title="Sair">Sair</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HOME / LOGIN -->
+    <section id="section-home" class="section section-home active">
+      <div class="hero">
+        <div class="hero-bg"></div>
+        <div class="container hero-content">
+          <div class="hero-left">
+            <div class="badge-live">
+              <span class="pulse"></span>
+              Portal de Boletim Escolar
+            </div>
+            <h1 class="hero-title">
+              Seu boletim escolar<br>
+              <span class="highlight">em um clique</span>
+            </h1>
+            <p class="hero-desc">
+              Consulte e imprima o boletim escolar
+              usando apenas sua matrícula e data de nascimento.
+            </p>
+            <div class="hero-stats">
+              <div class="stat">
+                <strong>24h</strong>
+                <span>Disponível</span>
+              </div>
+              <div class="stat">
+                <strong>100%</strong>
+                <span>Digital</span>
+              </div>
+              <div class="stat">
+                <strong>GO</strong>
+                <span>Estado de Goiás</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-right">
+            <div class="login-card" id="loginCard">
+              <div class="login-header">
+                <div class="login-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <h2>Acesso do Aluno / Responsável</h2>
+                <p>Informe os dados cadastrados na escola</p>
+              </div>
+              <form id="loginForm" class="login-form" autocomplete="off">
+                <div class="form-group">
+                  <label for="matricula">Matrícula</label>
+                  <input type="text" id="matricula" name="matricula" placeholder="Digite sua matrícula" required maxlength="20" inputmode="numeric">
+                  <span class="hint">Número de matrícula escolar</span>
+                </div>
+                <div class="form-group">
+                  <label for="dataNascimento">Data de Nascimento</label>
+                  <input type="date" id="dataNascimento" name="dataNascimento" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="btnAcessar">
+                  <span class="btn-text">Acessar Portal</span>
+                  <span class="btn-loader hidden"></span>
+                </button>
+              </form>
+              <div id="loginError" class="alert alert-error hidden"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Services Preview -->
+      <div class="container services-preview">
+        <h2 class="section-title">Como funciona</h2>
+        <div class="services-grid">
+          <div class="service-card" data-animate>
+            <div class="service-icon boletim">①</div>
+            <h3>Informe seus dados</h3>
+            <p>Matrícula e data de nascimento cadastradas na escola</p>
+          </div>
+          <div class="service-card" data-animate>
+            <div class="service-icon matricula">②</div>
+            <h3>Acesse o portal</h3>
+            <p>Validação automática e entrada segura</p>
+          </div>
+          <div class="service-card" data-animate>
+            <div class="service-icon declaracao">③</div>
+            <h3>Gere o boletim</h3>
+            <p>Notas e faltas do ano letivo em um documento</p>
+          </div>
+          <div class="service-card" data-animate>
+            <div class="service-icon historico">④</div>
+            <h3>Imprima ou salve</h3>
+            <p>Formato A4 paisagem, pronto para impressão</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD<!-- DASHBOARD (após login) -->
+    <section id="section-dashboard" class="section section-dashboard">
+      <div class="container">
+        <div class="dashboard-header">
+          <div class="welcome">
+            <h1>Olá, <span id="alunoNome">Aluno</span> 👋</h1>
+            <p id="alunoInfo">Matrícula • Escola • Ano</p>
+          </div>
+          <div class="dashboard-actions">
+            <button class="btn btn-outline" onclick="logout()">Sair</button>
+          </div>
+        </div>
+
+        <div class="info-cards">
+          <div class="info-card">
+            <span class="label">Situação</span>
+            <strong id="situacaoAluno" class="status-ok">Matriculado</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">Turma</span>
+            <strong id="turmaAluno">—</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">Turno</span>
+            <strong id="turnoAluno">—</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">Ano Letivo</span>
+            <strong id="anoLetivo">2026</strong>
+          </div>
+        </div>
+
+        <h2 class="section-title">Boletim Escolar</h2>
+        <div class="docs-grid" id="docsGrid">
+          <!-- cards gerados via JS -->
+        </div>
+
+        
+      </div>
+    </section>
+
+    <!-- SOBRE -->
+    <section id="section-sobre" class="section">
+      <div class="container narrow">
+        <div class="inst-header" data-animate>
+          <img src="brasao-goias.svg" alt="Brasão de Goiás" class="inst-brasao" width="72" height="96">
+          <div>
+            <p class="inst-kicker">Governo do Estado de Goiás</p>
+            <h1>Sobre o Pequi Express</h1>
+            <p class="inst-sub">Portal de Boletim Escolar · Secretaria de Estado da Educação</p>
+          </div>
+        </div>
+        <p class="lead" data-animate>
+          O <strong>Pequi Express</strong> permite que alunos e responsáveis consultem e imprimam
+          o <strong>boletim escolar</strong> de forma rápida e segura, com os dados registrados
+          pela unidade de ensino no ano letivo vigente.
+        </p>
+
+        <div class="inst-banner" data-animate>
+          <div class="inst-banner-item">
+            <strong>SEDUC-GO</strong>
+            <span>Secretaria de Estado da Educação</span>
+          </div>
+          <div class="inst-banner-item">
+            <strong>Boletim digital</strong>
+            <span>Notas e faltas do diário</span>
+          </div>
+          <div class="inst-banner-item">
+            <strong>Ano letivo 2026</strong>
+            <span>Consulta em tempo real</span>
+          </div>
+        </div>
+
+        <div class="about-grid">
+          <div class="about-item" data-animate>
+            <h3>🔒 Segurança</h3>
+            <p>Acesso com matrícula e data de nascimento. Sem preenchimento fictício de notas.</p>
+          </div>
+          <div class="about-item" data-animate>
+            <h3>📱 Qualquer dispositivo</h3>
+            <p>Funciona no celular, tablet ou computador, com tema claro e escuro.</p>
+          </div>
+          <div class="about-item" data-animate>
+            <h3>♿ Acessibilidade</h3>
+            <p>Integração com VLibras e navegação por teclado.</p>
+          </div>
+          <div class="about-item" data-animate>
+            <h3>🖨️ Impressão oficial</h3>
+            <p>Layout A4 paisagem, cabeçalho institucional e campos padronizados.</p>
+          </div>
+        </div>
+
+        <div class="inst-note" data-animate>
+          <h3>Importante</h3>
+          <p>
+            O boletim reflete os registros da escola. A validade para fins externos depende de
+            conferência e, quando exigido, de assinatura ou carimbo da unidade.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- AJUDA --><!-- AJUDA -->
+    <section id="section-ajuda" class="section">
+      <div class="container narrow">
+        <h1>Central de Ajuda</h1>
+        <div class="faq">
+          <details>
+            <summary>Como acesso o boletim?</summary>
+            <p>Informe a matrícula e a data de nascimento do aluno. Após o acesso, clique em “Boletim Escolar” e escolha o período desejado.</p>
+          </details>
+          <details>
+            <summary>Não encontro minha matrícula</summary>
+            <p>Verifique o número junto à secretaria da escola. Em caso de dúvida, procure a unidade de ensino com documento de identidade.</p>
+          </details>
+          <details>
+            <summary>Os documentos têm validade?</summary>
+            <p>Sim. Os documentos emitidos pelo Pequi Express possuem código de autenticação e são válidos para fins escolares e administrativos.</p>
+          </details>
+          <details>
+            <summary>Posso usar no celular?</summary>
+            <p>Sim. O portal é totalmente responsivo e funciona em qualquer navegador moderno.</p>
+          </details>
+          <details>
+            <summary>Como usar o VLibras?</summary>
+            <p>Clique no ícone flutuante de Libras no canto da tela. Selecione o texto que deseja traduzir para Língua Brasileira de Sinais.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Documento -->
+  <div id="docModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Documento</h2>
+        <button class="modal-close" onclick="closeModal()" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- conteúdo dinâmico -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="printDocument()">
+          🖨️ Imprimir / Salvar PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="brasao-goias.svg" alt="Brasão do Estado de Goiás" class="brasao-sm" width="36" height="48">
+        <div>
+          <strong>Pequi Express</strong>
+          <span>Governo do Estado de Goiás</span>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="#" onclick="showSection('sobre')">Sobre</a>
+        <a href="#" onclick="showSection('ajuda')">Ajuda</a>
+        <a href="https://goias.gov.br" target="_blank" rel="noopener">Portal Goiás</a>
+        <a href="https://educacao.go.gov.br" target="_blank" rel="noopener">SEDUC-GO</a>
+      </div>
+      <p class="footer-copy">© 2026 Portal de Boletim Escolar. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
