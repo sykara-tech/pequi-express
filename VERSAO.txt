@@ -1,10 +1,15 @@
-Pequi Express — versão final (somente boletim)
-- Único serviço: emissão e impressão de boletim escolar
-- Sem menções públicas a SIAP/SIGEP (textos neutros: "sistema", "carregando sistema...")
-- Brasão oficial embutido (brasao-goias.svg)
-- Loading com ícone de sincronização girando
-- Animações: entrada de seções, cards, linhas do boletim, botão com brilho, stats
-- Layout do boletim no padrão institucional (A4 paisagem na impressão)
+Pequi Express + GO ID — versão corrigida (2026-10-25)
 
-- Arquivos soltos (sem pastas css/js/assets).
-- Sem animação na logo.
+Correções principais:
+- HTML do pequi.html completamente reorganizado (tags balanceadas, seções fechadas corretamente)
+- Layout limpo: header com navegação, hero em duas colunas, dashboard, sobre e ajuda
+- Footer completo e institucional
+- Boletim escolar: busca de disciplinas mais resiliente (vinculos + fallback em arquivos_anuais)
+- Bimestres ausentes não interrompem mais a geração do boletim (exibem "—")
+- Navegação funcional (Início / Sobre / Ajuda) e sincronizada com o estado de login
+- Textos e tipografia revisados
+
+Arquivos soltos (sem pastas) para GitHub Pages.
+Firebase:
+- GO ID: https://goid-57028-default-rtdb.firebaseio.com
+- SIGEP: https://siap-f9cbb-default-rtdb.firebaseio.com
