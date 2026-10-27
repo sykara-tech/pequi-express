@@ -31,6 +31,7 @@
         </svg>
       </div>
       <p id="loadingMsg">Aguarde...</p>
+      <p class="sys-loading-hint">Carregando sistema...</p>
     </div>
   </div>
 
@@ -119,6 +120,42 @@
           </div>
         </div>
       </div>
+
+      <!-- Como funciona — foco exclusivo no boletim -->
+      <div class="services-preview">
+        <div class="container">
+          <h2 class="section-title">Como consultar o boletim</h2>
+          <div class="services-grid steps-grid">
+            <div class="service-card" data-animate>
+              <div class="service-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <h3>1. Entre com GO ID</h3>
+              <p>Acesse com CPF e senha da Identidade Digital de Goiás</p>
+            </div>
+            <div class="service-card" data-animate>
+              <div class="service-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </div>
+              <h3>2. Abra o boletim</h3>
+              <p>Notas, faltas e médias do ano letivo em um só lugar</p>
+            </div>
+            <div class="service-card" data-animate>
+              <div class="service-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                </svg>
+              </div>
+              <h3>3. Imprima ou salve PDF</h3>
+              <p>Documento no padrão institucional da SEDUC-GO</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ========== DASHBOARD ========== -->
@@ -126,7 +163,7 @@
       <div class="container">
         <div class="dashboard-header">
           <div class="welcome">
-            <h1>Olá, <span id="alunoNome">Aluno</span> 👋</h1>
+            <h1>Olá, <span id="alunoNome">Aluno</span></h1>
             <p id="alunoInfo">Matrícula • Escola • Ano</p>
           </div>
           <div class="dashboard-actions">
@@ -153,9 +190,10 @@
           </div>
         </div>
 
-        <h2 class="section-title" style="text-align:left;margin-bottom:1rem">Boletim Escolar</h2>
+        <h2 class="section-title" style="text-align:left;margin-bottom:1rem">Seu boletim escolar</h2>
+        <p class="dashboard-hint">Clique no card abaixo para visualizar e imprimir o boletim do ano letivo.</p>
         <div class="docs-grid" id="docsGrid">
-          <!-- cards gerados via JS -->
+          <!-- card do boletim gerado via JS -->
         </div>
       </div>
     </section>
@@ -247,11 +285,18 @@
       </div>
       <div class="modal-body" id="modalBody">
         <!-- conteúdo dinâmico -->
-      <button class="btn btn-primary" onclick="printDocument()" style="display: inline-flex; align-items: center; gap: 8px;">
-  <img src="https://www.svgrepo.com/show/533149/printer.svg" alt="Impressora" style="width: 16px; height: 16px; filter: brightness(0) invert(1);">
-  Imprimir / Salvar PDF
-</button>
-
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary btn-print" onclick="printDocument()" id="btnPrintBoletim">
+          <svg class="icon-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          <span>Imprimir boletim</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast -->
   <div id="toast" class="toast hidden" role="status"></div>

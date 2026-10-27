@@ -7,7 +7,7 @@ const ANO_LETIVO = "2026";
 const USE_MOCK_DATA = false;
 const ALUNOS = [];
 const DOCUMENTOS = [
-  {id:"boletim",titulo:"Boletim Escolar",descricao:"Notas, faltas e médias do ano letivo",icon:"▤",cor:"#166534"}
+  {id:"boletim",titulo:"Boletim Escolar",descricao:"Notas, faltas e médias do ano letivo",cor:"#166534"}
 ];
 function calcularMedia(d) {
   const vals=[d.b1,d.b2,d.b3,d.b4].filter(v=>v!==null&&v!==undefined&&v!=="");

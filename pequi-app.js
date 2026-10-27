@@ -373,12 +373,15 @@ function entrarDashboard(aluno) {
   document.getElementById("anoLetivo").textContent = aluno.anoLetivo;
 
   const grid = document.getElementById("docsGrid");
+  const boletimSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
   grid.innerHTML = DOCUMENTOS.map(doc => `
-    <div class="doc-card" onclick="abrirDocumento('${doc.id}')">
-      <div class="doc-icon" style="background: ${doc.cor}22">${doc.icon}</div>
-      <h3>${doc.titulo}</h3>
-      <p>${doc.descricao}</p>
-      <span class="doc-action">Emitir agora →</span>
+    <div class="doc-card doc-card-boletim" onclick="abrirDocumento('${doc.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDocumento('${doc.id}')}" role="button" tabindex="0" aria-label="Emitir ${doc.titulo}">
+      <div class="doc-icon" style="background: ${doc.cor}18; color: ${doc.cor}">${boletimSvg}</div>
+      <div class="doc-card-body">
+        <h3>${doc.titulo}</h3>
+        <p>${doc.descricao}</p>
+      </div>
+      <span class="doc-action">Emitir boletim →</span>
     </div>
   `).join("");
 
@@ -669,7 +672,7 @@ function printDocument() {
   `);
   printWindow.document.close();
   setTimeout(() => printWindow.print(), 350);
-  showToast("Documento pronto para impressão / PDF");
+  showToast("Boletim pronto para impressão ou salvar em PDF");
 }
 
 
