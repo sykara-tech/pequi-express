@@ -31,7 +31,6 @@
         </svg>
       </div>
       <p id="loadingMsg">Aguarde...</p>
-      <p class="sys-loading-hint">Carregando sistema...</p>
     </div>
   </div>
 
@@ -116,30 +115,6 @@
                 <div id="loginError" class="alert alert-error hidden" style="margin-top:12px"></div>
                 <p class="goid-create">Não tem conta? <a href="goid.html?return=pequi&action=register">Criar conta GO ID</a></p>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Prévia de serviços (visível só na home) -->
-      <div class="services-preview">
-        <div class="container">
-          <h2 class="section-title">O que você encontra aqui</h2>
-          <div class="services-grid">
-            <div class="service-card" data-animate>
-              <div class="service-icon">▤</div>
-              <h3>Boletim Escolar</h3>
-              <p>Notas, faltas e médias do ano letivo</p>
-            </div>
-            <div class="service-card" data-animate>
-              <div class="service-icon">🔒</div>
-              <h3>Acesso seguro</h3>
-              <p>Login único com GO ID</p>
-            </div>
-            <div class="service-card" data-animate>
-              <div class="service-icon">🖨️</div>
-              <h3>Impressão / PDF</h3>
-              <p>Documento no padrão institucional</p>
             </div>
           </div>
         </div>
@@ -272,15 +247,11 @@
       </div>
       <div class="modal-body" id="modalBody">
         <!-- conteúdo dinâmico -->
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
-        <button class="btn btn-primary" onclick="printDocument()">
-          Imprimir / Salvar PDF
-        </button>
-      </div>
-    </div>
-  </div>
+      <button class="btn btn-primary" onclick="printDocument()" style="display: inline-flex; align-items: center; gap: 8px;">
+  <img src="https://www.svgrepo.com/show/533149/printer.svg" alt="Impressora" style="width: 16px; height: 16px; filter: brightness(0) invert(1);">
+  Imprimir / Salvar PDF
+</button>
+
 
   <!-- Toast -->
   <div id="toast" class="toast hidden" role="status"></div>
