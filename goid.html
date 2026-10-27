@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GO ID — Identidade Digital do Estado de Goiás. Acesso único aos serviços públicos e educacionais.">
+  <title>GO ID | Identifique-se</title>
+  <link rel="icon" type="image/svg+xml" href="brasao-goias.svg">
+  <link rel="stylesheet" href="goid-styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- EmailJS (envio de e-mail de recuperação — configure em goid-app.js) -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>
+    // Inicializa EmailJS se a chave pública estiver configurada (feito no app após load)
+  </script>
+</head>
+<body>
+  <!-- VLibras -->
+  <div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper><div class="vw-plugin-top-wrapper"></div></div>
+  </div>
+  <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+  <script>new window.VLibras.Widget('https://vlibras.gov.br/app');</script>
+
+  <!-- Loading -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loader-box">
+      <div class="sync-spin">
+        <svg viewBox="0 0 64 64" width="44" height="44"><path fill="currentColor" d="M32 8a24 24 0 0 1 20.8 12.2l-5.2 3A18 18 0 0 0 32 14v8l12-10L32 2v6zm0 48a24 24 0 0 1-20.8-12.2l5.2-3A18 18 0 0 0 32 50v-8L20 52l12 10v-6z"/></svg>
+      </div>
+      <p id="loadingMsg">Carregando...</p>
+    </div>
+  </div>
+
+  <!-- ========== TELA DE LOGIN (estilo gov.br) ========== -->
+  <div id="screen-auth" class="screen-auth">
+    <div class="auth-layout">
+      <!-- Painel esquerdo (branding) -->
+      <aside class="auth-brand">
+        <div class="brand-overlay"></div>
+        <div class="brand-content">
+          <div class="brand-logo-row">
+            <img src="brasao-goias.svg" alt="Brasão de Goiás" class="brasao-lg">
+            <div>
+              <span class="goid-wordmark">GO<span>ID</span></span>
+              <span class="goid-tagline">Identidade Digital de Goiás</span>
+            </div>
+          </div>
+          <h1 class="brand-title">Uma conta só para todos os serviços digitais públicos</h1>
+          <p class="brand-desc">Acesse o Pequi Express, consulte boletins escolares e outros serviços do Estado de Goiás com um único login.</p>
+          <ul class="brand-features">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              Identidade única e segura
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Dados da Educação integrados
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Acesso aos serviços estaduais
+            </li>
+          </ul>
+        </div>
+        <div class="brand-footer">Estado de Goiás · 2026</div>
+      </aside>
+
+      <!-- Painel direito (identificação) -->
+      <main class="auth-panel">
+        <div class="auth-panel-inner">
+          <!-- LOGIN -->
+          <div id="view-login" class="auth-view">
+            <div class="auth-top-bar">
+              <button type="button" class="btn-theme" id="themeToggle" title="Alternar tema" aria-label="Alternar tema">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </button>
+            </div>
+
+            <h2 class="auth-heading">Identifique-se no GO ID</h2>
+            <p class="auth-sub">Acesse o Pequi Express e outros serviços da Educação com CPF e senha.</p>
+
+            <form id="loginForm" class="auth-form" autocomplete="on">
+              <div class="form-group">
+                <label for="loginCpf">CPF</label>
+                <input type="text" id="loginCpf" name="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric" autocomplete="username" required>
+              </div>
+              <div class="form-group">
+                <label for="loginSenha">Senha</label>
+                <div class="input-password">
+                  <input type="password" id="loginSenha" name="senha" placeholder="Digite sua senha" required minlength="6" autocomplete="current-password">
+                  <button type="button" class="toggle-pass" data-target="loginSenha" aria-label="Mostrar senha">
+                    <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div id="loginError" class="form-error hidden" role="alert"></div>
+
+              <button type="submit" class="btn-continuar" id="btnLogin">
+                <span class="btn-text">Continuar</span>
+                <span class="btn-loader hidden">
+                  <svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31 70"/></svg>
+                </span>
+              </button>
+            </form>
+
+            <p class="auth-help-row">
+              <button type="button" class="link-muted" id="btnForgot">Esqueci minha senha</button>
+              <span class="dot">·</span>
+              <button type="button" class="link-primary" id="btnShowRegister">Criar conta</button>
+            </p>
+          </div>
+
+          <!-- RECUPERAÇÃO DE SENHA (passo 1: CPF) -->
+          <div id="view-forgot" class="auth-view hidden">
+            <button type="button" class="btn-voltar" id="btnBackFromForgot">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Voltar
+            </button>
+
+            <div class="steps-indicator" aria-hidden="true">
+              <span class="step active">1</span>
+              <span class="step-line"></span>
+              <span class="step">2</span>
+              <span class="step-line"></span>
+              <span class="step">3</span>
+            </div>
+
+            <div class="security-header">
+              <div class="security-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="28" height="28"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div>
+                <h2 class="auth-heading" style="margin-bottom:4px">Recuperar senha</h2>
+                <p class="auth-sub" style="margin:0">Informe o CPF cadastrado. Enviaremos um código de verificação para o e-mail vinculado à conta.</p>
+              </div>
+            </div>
+
+            <div class="security-notice">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <span>Por segurança, o código tem 8 caracteres, expira em 15 minutos e é de uso único.</span>
+            </div>
+
+            <form id="forgotForm" class="auth-form" autocomplete="on">
+              <div class="form-group">
+                <label for="forgotCpf">CPF</label>
+                <input type="text" id="forgotCpf" name="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric" autocomplete="username" required>
+              </div>
+              <div id="forgotError" class="form-error hidden" role="alert"></div>
+              <div id="forgotInfo" class="form-info hidden" role="status"></div>
+              <button type="submit" class="btn-continuar" id="btnForgotSubmit">
+                <span class="btn-text">Enviar código por e-mail</span>
+                <span class="btn-loader hidden">
+                  <svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31 70"/></svg>
+                </span>
+              </button>
+            </form>
+          </div>
+
+          <!-- RECUPERAÇÃO — passo 2: só o código (totem separado) -->
+          <div id="view-code" class="auth-view hidden">
+            <button type="button" class="btn-voltar" id="btnBackFromCode">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Voltar
+            </button>
+
+            <div class="steps-indicator" aria-hidden="true">
+              <span class="step done">1</span>
+              <span class="step-line done"></span>
+              <span class="step active">2</span>
+              <span class="step-line"></span>
+              <span class="step">3</span>
+            </div>
+
+            <div class="security-header">
+              <div class="security-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="28" height="28"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div>
+                <h2 class="auth-heading" style="margin-bottom:4px">Verificar código</h2>
+                <p class="auth-sub" style="margin:0">Enviamos um código de 8 caracteres para <strong id="resetEmailMask">seu e-mail</strong>.</p>
+              </div>
+            </div>
+
+            <div class="security-badge" id="resetSecurityBadge">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Código de verificação
+            </div>
+
+            <form id="codeForm" class="auth-form" autocomplete="off">
+              <div class="form-group">
+                <label for="resetCode">Código de verificação</label>
+                <input type="text" id="resetCode" class="input-code" placeholder="A1B2C3D4" maxlength="8" inputmode="text" pattern="[A-Za-z0-9]{8}" required autocomplete="one-time-code" spellcheck="false">
+                <span class="hint">8 caracteres (letras e números) · válido 15 min · máx. 5 tentativas</span>
+              </div>
+              <div id="codeError" class="form-error hidden" role="alert"></div>
+              <div id="resetAttemptsLeft" class="form-attempts hidden" role="status"></div>
+              <button type="submit" class="btn-continuar" id="btnCodeSubmit">
+                <span class="btn-text">Validar código</span>
+                <span class="btn-loader hidden">
+                  <svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31 70"/></svg>
+                </span>
+              </button>
+            </form>
+
+            <p class="auth-help-row" style="margin-top:18px">
+              <button type="button" class="link-muted" id="btnResendCode">Não recebeu? Reenviar código</button>
+            </p>
+          </div>
+
+          <!-- RECUPERAÇÃO — passo 3: só a nova senha -->
+          <div id="view-newpass" class="auth-view hidden">
+            <button type="button" class="btn-voltar" id="btnBackFromNewpass">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Voltar
+            </button>
+
+            <div class="steps-indicator" aria-hidden="true">
+              <span class="step done">1</span>
+              <span class="step-line done"></span>
+              <span class="step done">2</span>
+              <span class="step-line done"></span>
+              <span class="step active">3</span>
+            </div>
+
+            <div class="security-header">
+              <div class="security-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="28" height="28"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div>
+                <h2 class="auth-heading" style="margin-bottom:4px">Criar nova senha</h2>
+                <p class="auth-sub" style="margin:0">Código validado. Defina uma nova senha para a sua conta GO ID.</p>
+              </div>
+            </div>
+
+            <div class="security-badge security-badge-ok">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Identidade verificada
+            </div>
+
+            <form id="newpassForm" class="auth-form" autocomplete="off">
+              <div class="form-group">
+                <label for="resetSenha">Nova senha</label>
+                <div class="input-password">
+                  <input type="password" id="resetSenha" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+                  <button type="button" class="toggle-pass" data-target="resetSenha" aria-label="Mostrar senha">
+                    <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="resetSenha2">Confirmar nova senha</label>
+                <div class="input-password">
+                  <input type="password" id="resetSenha2" placeholder="Repita a nova senha" required minlength="6" autocomplete="new-password">
+                  <button type="button" class="toggle-pass" data-target="resetSenha2" aria-label="Mostrar senha">
+                    <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div id="newpassError" class="form-error hidden" role="alert"></div>
+              <button type="submit" class="btn-continuar" id="btnNewpassSubmit">
+                <span class="btn-text">Salvar nova senha</span>
+                <span class="btn-loader hidden">
+                  <svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31 70"/></svg>
+                </span>
+              </button>
+            </form>
+          </div>
+
+          <!-- CADASTRO -->
+          <div id="view-register" class="auth-view hidden">
+            <button type="button" class="btn-voltar" id="btnBackLogin">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Voltar
+            </button>
+
+            <h2 class="auth-heading">Criar conta no GO ID</h2>
+            <p class="auth-sub">Informe seus dados. Se você for aluno, o sistema tentará localizar sua matrícula na Educação automaticamente.</p>
+
+            <form id="registerForm" class="auth-form" autocomplete="on">
+              <div class="form-group">
+                <label for="regCpf">CPF</label>
+                <input type="text" id="regCpf" placeholder="000.000.000-00" required maxlength="14" inputmode="numeric" autocomplete="off">
+                <span class="hint" id="cpfHint"></span>
+              </div>
+              <div class="form-group">
+                <label for="regNome">Nome completo</label>
+                <input type="text" id="regNome" placeholder="Como no documento" required maxlength="120" autocomplete="name">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="regNasc">Data de nascimento</label>
+                  <input type="date" id="regNasc" required max="2015-12-31">
+                </div>
+                <div class="form-group">
+                  <label for="regEmail">E-mail</label>
+                  <input type="email" id="regEmail" placeholder="seu@email.com" required maxlength="120" autocomplete="email">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="regMatricula">Matrícula escolar <span class="optional">(opcional)</span></label>
+                <input type="text" id="regMatricula" placeholder="Será buscada automaticamente se possível" maxlength="20" inputmode="numeric">
+                <span class="hint">Se você for aluno da rede, podemos localizar seus dados no SIGEP</span>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="regSenha">Senha</label>
+                  <div class="input-password">
+                    <input type="password" id="regSenha" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+                    <button type="button" class="toggle-pass" data-target="regSenha" aria-label="Mostrar senha">
+                      <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="regSenha2">Confirmar senha</label>
+                  <div class="input-password">
+                    <input type="password" id="regSenha2" placeholder="Repita a senha" required minlength="6" autocomplete="new-password">
+                    <button type="button" class="toggle-pass" data-target="regSenha2" aria-label="Mostrar senha">
+                      <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" id="regTermos" required>
+                <label for="regTermos">Li e concordo com os <a href="#" id="linkTermos" class="link-policy">Termos de Uso</a> e a <a href="#" id="linkPrivacidade" class="link-policy">Política de Privacidade (LGPD)</a>.</label>
+              </div>
+              <div id="registerError" class="form-error hidden" role="alert"></div>
+              <div id="registerInfo" class="form-info hidden" role="status"></div>
+              <button type="submit" class="btn-continuar" id="btnRegister">
+                <span class="btn-text">Criar conta</span>
+                <span class="btn-loader hidden">
+                  <svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31 70"/></svg>
+                </span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <footer class="auth-panel-footer">
+          <a href="#" class="link-muted link-policy" id="linkTermosFooter">Termos de Uso</a>
+          <span class="sep">·</span>
+          <a href="#" class="link-muted link-policy" id="linkPrivacidadeFooter">Política de Privacidade (LGPD)</a>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <!-- ========== ÁREA LOGADA ========== -->
+  <div id="screen-app" class="screen-app hidden">
+    <header class="app-header">
+      <div class="container header-inner">
+        <div class="brand-mini" onclick="goHome()">
+          <img src="brasao-goias.svg" alt="" width="36" height="48">
+          <div>
+            <strong>GO ID</strong>
+            <small>Identidade Digital</small>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="btn-theme" id="themeToggleApp" title="Alternar tema">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+          <div class="user-chip">
+            <div class="avatar" id="userAvatar">GO</div>
+            <div class="user-meta">
+              <span id="userNameShort"></span>
+              <small id="userGoId"></small>
+            </div>
+            <button class="btn-sair" onclick="logout()">Sair</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section id="section-dashboard" class="section active">
+        <div class="container">
+          <div class="welcome">
+            <h1>Olá, <span id="dashNome">Usuário</span></h1>
+            <p>Seu GO ID: <strong id="dashGoId">—</strong></p>
+          </div>
+
+          <div class="profile-card">
+            <div class="avatar-lg" id="profileAvatar">GO</div>
+            <div class="profile-body">
+              <h2 id="profileNome">—</h2>
+              <p id="profileEmail">—</p>
+              <div class="meta-row">
+                <span><b>CPF</b> <span id="profileCpf">—</span></span>
+                <span><b>Nascimento</b> <span id="profileNasc">—</span></span>
+                <span id="profileMatriculaWrap" class="hidden"><b>Matrícula</b> <span id="profileMatricula">—</span></span>
+              </div>
+            </div>
+            <button class="btn-outline" onclick="showSection('perfil')">Editar perfil</button>
+          </div>
+
+          <h2 class="block-title">Serviços disponíveis</h2>
+          <div class="services-grid" id="servicesGrid"></div>
+        </div>
+      </section>
+
+      <section id="section-perfil" class="section">
+        <div class="container narrow">
+          <button class="btn-voltar" onclick="showSection('dashboard')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Voltar
+          </button>
+          <h1>Meu perfil</h1>
+          <div class="card">
+            <form id="perfilForm" class="auth-form">
+              <div class="form-group">
+                <label for="perfilNome">Nome completo</label>
+                <input type="text" id="perfilNome" required maxlength="120">
+              </div>
+              <div class="form-group">
+                <label for="perfilEmail">E-mail</label>
+                <input type="email" id="perfilEmail" required maxlength="120">
+              </div>
+              <div class="form-group">
+                <label for="perfilMatricula">Matrícula escolar (SIGEP / Pequi Express)</label>
+                <input type="text" id="perfilMatricula" maxlength="20" inputmode="numeric" placeholder="Opcional — vincula o boletim">
+              </div>
+              <div id="perfilError" class="form-error hidden"></div>
+              <div id="perfilSuccess" class="form-success hidden"></div>
+              <button type="submit" class="btn-continuar">Salvar alterações</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="container">
+        <img src="brasao-goias.svg" alt="" width="24" height="32">
+        <span>GO ID · Estado de Goiás · 2026</span>
+      </div>
+    </footer>
+  </div>
+
+  
+  <!-- Modal Termos / LGPD -->
+  <div id="modalPolicy" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalPolicyTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modalPolicyTitle">Termos e Privacidade</h2>
+        <button type="button" class="modal-close" id="modalPolicyClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body" id="modalPolicyBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn-continuar" id="modalPolicyOk">Entendi</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="goid-app.js"></script>
+</body>
+</html>
