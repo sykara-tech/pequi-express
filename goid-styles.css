@@ -97,11 +97,6 @@ body.sys-busy { overflow: hidden; }
 .brasao-lg {
   width: 64px; height: 86px;
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.25));
-  animation: float 4s ease-in-out infinite;
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
 }
 .goid-wordmark {
   display: block;
