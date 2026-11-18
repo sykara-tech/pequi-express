@@ -14,6 +14,7 @@ let lastActivity = Date.now();
 
 let alunoAtual = null;
 let documentoAtual = null;
+let ultimoDocMeta = null; // { tipo, nome, codigo, arquivo }
 
 function mostrarCarregando(msg) {
   const el = document.getElementById("loadingOverlay");
@@ -31,6 +32,17 @@ function ocultarCarregando() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  try {
+    const h = (location.hash || "").replace(/^#/, "");
+    if (h.startsWith("validar=")) {
+      const cod = decodeURIComponent(h.slice(8));
+      setTimeout(() => {
+        const el = document.getElementById("validarCodigo");
+        if (el) { el.value = cod; if (typeof validarDocumentoPublico === "function") validarDocumentoPublico(); }
+        document.getElementById("validarSection")?.scrollIntoView({ behavior: "smooth" });
+      }, 700);
+    }
+  } catch (e) {}
   setTimeout(() => {
     ocultarCarregando();
   }, 900);
@@ -171,6 +183,21 @@ function lerSessaoPequi() {
   }
 }
 
+function renovarSessaoPequi() {
+  if (!alunoAtual) return;
+  try {
+    const raw = localStorage.getItem(PEQUI_SESSION_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    data.aluno = alunoAtual;
+    data.lastActivity = Date.now();
+    data.exp = Date.now() + SESSION_MAX_MS;
+    data.startedAt = data.startedAt || Date.now();
+    localStorage.setItem(PEQUI_SESSION_KEY, JSON.stringify(data));
+    localStorage.removeItem("goid_logged_out_at");
+    lastActivity = Date.now();
+  } catch {}
+}
+
 function iniciarSessaoSegura() {
   clearInterval(sessionTimer);
   sessionTimer = setInterval(verificarSessao, 15000);
@@ -187,17 +214,19 @@ function reiniciarIdleTimer() {
 }
 
 function verificarSessao() {
-  if (!alunoAtual) return;
+  if (!alunoAtual) return false;
   const sess = lerSessaoPequi();
   if (!sess) {
     showToast("Sessão expirada. Entre novamente com o GO ID.");
     logout(true);
-    return;
+    return false;
   }
   if (Date.now() - lastActivity > SESSION_IDLE_MS) {
     showToast("Sessão encerrada por inatividade.");
     logout(true);
+    return false;
   }
+  return true;
 }
 
 function lerSsoGoId() {
@@ -255,16 +284,34 @@ async function montarAlunoDoSigep(matricula, dataNasc) {
   if (!found) return null;
   const [id, raw] = found;
   const turmaId = raw.turma || raw.turmaId || "";
-  const turmas = await dbGet("siap/turmas").catch(() => ({}));
+  const [turmas, cfg] = await Promise.all([
+    dbGet("siap/turmas").catch(() => ({})),
+    dbGet("siap/config").catch(() => ({}))
+  ]);
   const turma = turmas?.[turmaId] || {};
+  const nomeEscola = (cfg && (cfg.nomeEscola || cfg.escola)) ||
+    raw.escolaNome || raw.escola || "Unidade escolar";
+  const mun = (cfg && cfg.municipio) || raw.municipio || "—";
+  const cod = (cfg && cfg.codigoEscola) || raw.inep || raw.codigoEscola || "—";
   return {
     ...raw, id, matricula: raw.matricula || id,
-    turmaId, turma: turma.nome || raw.turmaNome || turmaId || "—",
-    turno: raw.turno || turma.turno || "—", serie: raw.serie || turma.serie || "—",
-    composicao: raw.composicao || turma.composicao || turma.serie || "—",
-    anoLetivo: raw.ano || ANO_LETIVO,
-    escola: raw.escolaNome || raw.escola || "Unidade escolar",
-    inep: raw.inep || raw.codigoEscola || "—", municipio: raw.municipio || "—", uf: "GO",
+    turmaId,
+    turma: (function () {
+      const n = normalizarTurmaLida(turma);
+      return n.nome || raw.turmaNome || turmaId || "—";
+    })(),
+    turno: raw.turno || turma.turno || "—",
+    serie: (function () {
+      const n = normalizarTurmaLida(turma);
+      return n.serie || raw.serie || "—";
+    })(),
+    composicao: (function () {
+      const n = normalizarTurmaLida(turma);
+      return n.composicao || raw.composicao || "—";
+    })(),
+    anoLetivo: raw.ano || raw.anoLetivo || (cfg && cfg.anoLetivo) || ANO_LETIVO,
+    escola: nomeEscola,
+    inep: cod, municipio: mun, uf: (cfg && cfg.uf) || "GO",
     situacao: raw.status || raw.situacao || "Matriculado",
     dataNascimento: raw.dataNascimento || dataNasc || "",
     disciplinas: [],
@@ -373,17 +420,27 @@ function entrarDashboard(aluno) {
   document.getElementById("anoLetivo").textContent = aluno.anoLetivo;
 
   const grid = document.getElementById("docsGrid");
-  const boletimSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
-  grid.innerHTML = DOCUMENTOS.map(doc => `
-    <div class="doc-card doc-card-boletim" onclick="abrirDocumento('${doc.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDocumento('${doc.id}')}" role="button" tabindex="0" aria-label="Emitir ${doc.titulo}">
-      <div class="doc-icon" style="background: ${doc.cor}18; color: ${doc.cor}">${boletimSvg}</div>
+  const icons = {
+    boletim: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+    "declaracao-matricula": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>`,
+    "frequencia-anual": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+    "boletim": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+    calendario: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+    "claria-ajuda": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`
+  };
+  grid.innerHTML = DOCUMENTOS.map(doc => {
+    const icon = icons[doc.id] || icons.boletim;
+    const acao = doc.acao || "Abrir →";
+    return `
+    <div class="doc-card" onclick="abrirDocumento('${doc.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDocumento('${doc.id}')}" role="button" tabindex="0" aria-label="${doc.titulo}">
+      <div class="doc-icon" style="background: ${doc.cor}18; color: ${doc.cor}">${icon}</div>
       <div class="doc-card-body">
         <h3>${doc.titulo}</h3>
         <p>${doc.descricao}</p>
       </div>
-      <span class="doc-action">Emitir boletim →</span>
-    </div>
-  `).join("");
+      <span class="doc-action">${acao}</span>
+    </div>`;
+  }).join("");
 
   showSection("dashboard");
   showToast(`Bem-vindo(a), ${aluno.nome.split(" ")[0]}!`);
@@ -411,23 +468,91 @@ function logout(silencioso) {
 
 // ===== Documentos =====
 async function abrirDocumento(id) {
-  if(!alunoAtual){ showToast("Entre com o GO ID para acessar o boletim"); irParaGoId(); return; }
-  verificarSessao();
-  documentoAtual=id;
-  const doc=DOCUMENTOS.find(d=>d.id===id);
-  document.getElementById("modalTitle").textContent=doc?.titulo||"Documento escolar";
-  document.getElementById("modalBody").innerHTML='<p class="document-loading">Preparando boletim…</p>';
-  document.getElementById("docModal").classList.remove("hidden"); document.body.style.overflow="hidden";
-  try {
-    if(id==="boletim"){
-      mostrarCarregando("Montando boletim...");
-      alunoAtual.disciplinas=await buscarBoletim(alunoAtual);
-      ocultarCarregando();
+  // Garante aluno na memória (restaura da sessão se necessário)
+  if (!alunoAtual) {
+    const sess = lerSessaoPequi();
+    if (sess && sess.aluno) {
+      alunoAtual = sess.aluno;
+      lastActivity = Date.now();
     }
-    document.getElementById("modalBody").innerHTML=gerarConteudoDocumento(id);
-  } catch(err) {
+  }
+  if (!alunoAtual) {
+    showToast("Entre com o GO ID para acessar os serviços");
+    irParaGoId();
+    return;
+  }
+  if (!verificarSessao()) {
+    // tenta renovar se ainda há aluno em memória
+    if (alunoAtual) {
+      renovarSessaoPequi();
+    } else {
+      return;
+    }
+  } else {
+    renovarSessaoPequi();
+  }
+
+  // Assistente ClarIA — abre o widget em vez do modal
+  if (id === "claria-ajuda") {
+    if (window.ClarIA && typeof ClarIA.open === "function") {
+      ClarIA.open();
+      showToast("ClarIA pronta para ajudar");
+    } else {
+      showToast("ClarIA indisponível no momento");
+    }
+    return;
+  }
+
+  documentoAtual = id;
+  const doc = DOCUMENTOS.find(d => d.id === id);
+  const modalTitle = document.getElementById("modalTitle");
+  const modalBody = document.getElementById("modalBody");
+  const modal = document.getElementById("docModal");
+  if (modalTitle) modalTitle.textContent = doc?.titulo || "Documento escolar";
+  if (modalBody) modalBody.innerHTML = '<p class="document-loading">Preparando documento…</p>';
+  if (modal) modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+
+  try {
+    // Snapshot local para não depender de alunoAtual se a sessão limpar no meio
+    const alunoSnap = { ...alunoAtual };
+    if (id === "boletim" || id === "frequencia-anual") {
+      mostrarCarregando("Consultando dados escolares...");
+      try {
+        if (!alunoSnap.disciplinas || !alunoSnap.disciplinas.length) {
+          alunoSnap.disciplinas = await buscarBoletim(alunoSnap);
+          // sincroniza de volta se ainda logado
+          if (alunoAtual) {
+            alunoAtual.disciplinas = alunoSnap.disciplinas;
+            alunoAtual._turma = alunoSnap._turma || alunoAtual._turma;
+          }
+        }
+      } catch (boletimErr) {
+        // Declaração ainda pode ser emitida; boletim/freq/resumo precisam de dados
+        if (id !== "declaracao-matricula") {
+          throw boletimErr;
+        }
+      } finally {
+        ocultarCarregando();
+      }
+    }
+    // Garante referência usada na geração
+    const prev = alunoAtual;
+    alunoAtual = alunoSnap;
+    try {
+      if (modalBody) modalBody.innerHTML = gerarConteudoDocumento(id);
+    } finally {
+      // mantém alunoSnap se prev foi limpo
+      if (!alunoAtual && prev) alunoAtual = prev;
+      else if (alunoSnap && alunoSnap.matricula) alunoAtual = { ...(alunoAtual || {}), ...alunoSnap };
+    }
+  } catch (err) {
     ocultarCarregando();
-    document.getElementById("modalBody").innerHTML=`<div class="data-error"><h3>Não foi possível emitir o documento</h3><p>${escapeHTML(err.message||"Falha na consulta ao sistema.")}</p><p>Confira a conexão e tente novamente.</p></div>`;
+    console.error("[Pequi] emitir documento:", err);
+    if (modalBody) {
+      modalBody.innerHTML =
+        `<div class="data-error"><h3>Não foi possível emitir o documento</h3><p>${escapeHTML(err.message || "Falha na consulta ao sistema.")}</p><p>Se a sessão expirou, entre novamente com o GO ID. Caso o erro persista, confira a matrícula e a conexão.</p></div>`;
+    }
   }
 }
 function normalizarDataISO(value){const s=String(value||"").trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?`${m[3]}-${m[2]}-${m[1]}`:s};
@@ -536,7 +661,7 @@ async function buscarBoletim(aluno) {
     rows.push(row);
   }
 
-  aluno._turma = turma;
+  aluno._turma = normalizarTurmaLida(turma);
   aluno.totalFaltas = rows.reduce((s, r) => s + r.faltas, 0);
   return rows;
 }
@@ -547,134 +672,485 @@ function closeModal() {
   documentoAtual = null;
 }
 
-function gerarConteudoDocumento(id) {
-  const a = alunoAtual;
-  const dataEmissao = formatarDataHoje();
-  if (id !== "boletim") {
-    return `<div class="doc-print" id="docPrintArea"><p>Serviço disponível: somente boletim escolar.</p></div>`;
-  }
-
-  const t = a._turma || {};
-  const discs = a.disciplinas || [];
-  const cel = (v) => (v == null || v === "" ? "—" : (typeof v === "number" ? Number(v).toFixed(1).replace(".", ",") : v));
-  const rows = discs.map(d => {
-    return `<tr>
-      <td class="disc">${escapeHTML(d.nome)}</td>
-      ${["1","2","3","4"].map(b => `
-        <td>${cel(d["b"+b])}</td>
-        <td>${d["f"+b] != null && Number(d["f"+b]) !== 0 ? Number(d["f"+b]) : "—"}</td>
-      `).join("")}
-      <td>${cel(d.ma)}</td>
-      <td>${cel(d.mf)}</td>
-      <td>${d.faltas || "—"}</td>
-    </tr>`;
-  }).join("");
-  const totalFaltas = discs.reduce((s, d) => s + Number(d.faltas || 0), 0);
-  let freq;
-  if (a.frequenciaGeral != null && a.frequenciaGeral !== "") {
-    freq = `${a.frequenciaGeral}%`;
-  } else if (totalFaltas > 0 && discs.length) {
-    freq = Math.max(0, Math.round(100 - (totalFaltas / Math.max(discs.length * 20, 1)) * 100)) + "%";
-  } else {
-    freq = "100%";
-  }
-  const escolaNome = a.escola && a.escola !== "Unidade escolar"
-    ? a.escola
-    : "COLÉGIO ESTADUAL MARIA DO CARMO LIMA — CÓD. 520";
-
-  return `<div class="doc-print bol-oficial bol-anim" id="docPrintArea">
-    <div class="bol-cab">
-      <img src="brasao-goias.svg" alt="Goiás" onerror="this.style.display='none'" />
-      <div class="esq">
-        <h1>ESTADO DE GOIÁS</h1>
-        <p>SECRETARIA DE ESTADO DA EDUCAÇÃO</p>
-        <p>${escapeHTML(escolaNome)}</p>
-      </div>
-      <div class="dir">
-        <h2>BOLETIM ESCOLAR</h2>
-        <p>${escapeHTML(t.composicao || a.composicao || "Ensino Médio")}</p>
-        <p>ANO: ${escapeHTML(a.anoLetivo || ANO_LETIVO)}</p>
-      </div>
-    </div>
-    <div class="bol-dados">
-      <div><strong>NOME DO ALUNO(A):</strong> ${escapeHTML(a.nome)}</div>
-      <div><strong>SEXO:</strong> ${escapeHTML(a.sexo || "—")}</div>
-      <div><strong>N. CHAM.:</strong> ${escapeHTML(a.nCham ?? "—")}</div>
-      <div><strong>MATRÍCULA:</strong> ${escapeHTML(a.matricula)}</div>
-      <div><strong>CÓD. INEP:</strong> ${escapeHTML(a.inep || "—")}</div>
-      <div><strong>EMISSÃO:</strong> ${dataEmissao}</div>
-      <div><strong>TURNO:</strong> ${escapeHTML(a.turno || t.turno || "—")}</div>
-      <div><strong>TURMA:</strong> ${escapeHTML(t.nome || a.turma || "—")}</div>
-      <div><strong>SÉRIE:</strong> ${escapeHTML(t.serie || a.serie || "—")}</div>
-    </div>
-    <table class="bol-table">
-      <thead>
-        <tr>
-          <th rowspan="2">COMPONENTES CURRICULARES</th>
-          <th colspan="2">1º BIM.</th>
-          <th colspan="2">2º BIM.</th>
-          <th colspan="2">3º BIM.</th>
-          <th colspan="2">4º BIM.</th>
-          <th rowspan="2">MA</th>
-          <th rowspan="2">MÉDIA FINAL</th>
-          <th rowspan="2">FALTAS</th>
-        </tr>
-        <tr>
-          <th>N</th><th>F</th><th>N</th><th>F</th><th>N</th><th>F</th><th>N</th><th>F</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="bol-rodape">
-      <div><strong>% Frequência</strong>${freq}</div>
-      <div><strong>Total de Faltas</strong>${totalFaltas || "0"}</div>
-      <div><strong>Faltas Justificadas</strong>—</div>
-      <div><strong>Resultado Final</strong>${escapeHTML(a.situacao || "Cursando")}</div>
-    </div>
-  </div>`;
+/* ========== Autenticação de documentos ========== */
+function salvarValidacaoDoc(registro) {
+  try {
+    const key = "pequi_docs_auth";
+    const map = JSON.parse(localStorage.getItem(key) || "{}");
+    map[registro.codigo] = registro;
+    localStorage.setItem(key, JSON.stringify(map));
+  } catch {}
+  try {
+    if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
+      firebase.database().ref("pequi/validacoes/" + registro.codigo).set(registro);
+    }
+  } catch {}
 }
 
+function buscarValidacaoDoc(codigo) {
+  const cod = String(codigo || "").trim().toUpperCase();
+  if (!cod) return null;
+  try {
+    const map = JSON.parse(localStorage.getItem("pequi_docs_auth") || "{}");
+    if (map[cod]) return map[cod];
+  } catch {}
+  return null;
+}
+
+function normalizarCodigoValidacao(raw) {
+  let s = String(raw || "").trim().toUpperCase();
+  // QR pode vir como PEQUI|PE-XXXX|...
+  if (s.includes("|")) {
+    const parts = s.split("|");
+    const pe = parts.find(p => p.startsWith("PE-"));
+    if (pe) return pe;
+  }
+  const m = s.match(/PE-[A-Z0-9]{6}/);
+  if (m) return m[0];
+  if (s.startsWith("PE-")) return s;
+  return s;
+}
+
+async function validarDocumentoPublico(codigoForcado) {
+  const input = document.getElementById("validarCodigo");
+  const out = document.getElementById("validarResultado");
+  if (!out) return;
+  const codigo = normalizarCodigoValidacao(codigoForcado || input?.value || "");
+  if (input && codigoForcado) input.value = codigo;
+  out.classList.remove("hidden", "ok", "erro");
+  if (!codigo) {
+    out.classList.add("erro");
+    out.innerHTML = "Informe o código de autenticação (ex.: PE-AB12CD) ou leia o QR Code.";
+    return;
+  }
+  out.innerHTML = "Consultando…";
+  let reg = buscarValidacaoDoc(codigo);
+  if (!reg) {
+    try {
+      if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
+        const snap = await firebase.database().ref("pequi/validacoes/" + codigo).once("value");
+        reg = snap.val();
+      }
+    } catch {}
+  }
+  if (!reg) {
+    out.classList.add("erro");
+    out.innerHTML = "<strong>Documento não encontrado.</strong> Verifique o código ou se a emissão foi feita neste portal.";
+    return;
+  }
+  out.classList.add("ok");
+  out.innerHTML = `
+    <strong>✓ Documento autêntico</strong><br>
+    Tipo: ${escapeHTML(reg.tipo || "—")}<br>
+    Aluno(a): ${escapeHTML(reg.nome || "—")}<br>
+    Matrícula: ${escapeHTML(reg.matricula || "—")}<br>
+    Emitido em: ${escapeHTML(reg.emitidoEm || "—")}<br>
+    Código: <code>${escapeHTML(reg.codigo)}</code>`;
+}
+
+/* ----- Scanner QR (câmera) ----- */
+let qrStream = null;
+let qrScanTimer = null;
+
+async function abrirScannerQR() {
+  const box = document.getElementById("qrScannerBox");
+  const video = document.getElementById("qrVideo");
+  if (!box || !video) return;
+  box.classList.remove("hidden");
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    video.srcObject = qrStream;
+    await video.play();
+    if ("BarcodeDetector" in window) {
+      const detector = new BarcodeDetector({ formats: ["qr_code"] });
+      const tick = async () => {
+        if (!qrStream) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes && codes[0] && codes[0].rawValue) {
+            const cod = normalizarCodigoValidacao(codes[0].rawValue);
+            fecharScannerQR();
+            const input = document.getElementById("validarCodigo");
+            if (input) input.value = cod;
+            validarDocumentoPublico(cod);
+            showToast("QR lido: " + cod);
+            return;
+          }
+        } catch {}
+        qrScanTimer = setTimeout(tick, 400);
+      };
+      tick();
+    } else {
+      showToast("Seu navegador não lê QR pela câmera. Digite o código manualmente.");
+    }
+  } catch (err) {
+    console.warn(err);
+    showToast("Não foi possível acessar a câmera. Digite o código.");
+    fecharScannerQR();
+  }
+}
+
+function fecharScannerQR() {
+  if (qrScanTimer) clearTimeout(qrScanTimer);
+  qrScanTimer = null;
+  if (qrStream) {
+    qrStream.getTracks().forEach(t => t.stop());
+    qrStream = null;
+  }
+  const video = document.getElementById("qrVideo");
+  if (video) video.srcObject = null;
+  document.getElementById("qrScannerBox")?.classList.add("hidden");
+}
+
+function dataPorExtenso(date) {
+  const d = date || new Date();
+  const s = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function blocoAutenticidade(codigo, qrSrc, localidade) {
+  return `
+    <div class="decl-auth">
+      <div class="decl-auth-txt">
+        <p><strong>Autenticação:</strong> código <strong>${escapeHTML(codigo)}</strong> · valide no Pequi Express ou pelo QR Code.</p>
+        <p>${escapeHTML(localidade || "Goiás")} · emissão digital · sem rasuras</p>
+      </div>
+      <img class="decl-qr" src="${qrSrc}" alt="QR ${escapeHTML(codigo)}" width="78" height="78" />
+    </div>`;
+}
+
+/** Evita repetir o mesmo texto em turma e série (erro comum no cadastro SIGEP). */
+
+function normalizarTurmaLida(turma) {
+  const t = Object.assign({}, turma || {});
+  let nome = String(t.nome || "").trim().replace(/\s+/g, " ");
+  let serie = String(t.serie || "").trim().replace(/\s+/g, " ");
+  let composicao = String(t.composicao || "").trim();
+  if (nome && serie && nome.toUpperCase() === serie.toUpperCase()) {
+    const m = nome.match(/^(\d+\s*[ªº°]?)\s*[\"“”']?\s*([A-Za-z0-9])?\s*[\"“”']?\s*[-—,]?\s*(.*)$/i);
+    if (m) {
+      serie = m[1].replace(/\s+/g, "");
+      if (!/[ªº°]$/.test(serie)) serie += "ª";
+      const letra = m[2] ? m[2].toUpperCase() : "";
+      nome = letra ? (serie + " " + letra) : serie;
+      const resto = (m[3] || "").replace(/^[-\s—]+/, "").trim();
+      if (resto && (!composicao || composicao === "Ensino Médio")) {
+        composicao = resto.replace(/\s+/g, " ");
+      }
+    }
+  }
+  return { nome, serie, composicao, turno: t.turno, id: t.id, disciplinas: t.disciplinas };
+}
+
+function rotulosTurmaSerie(a, t) {
+  t = t || {};
+  let turma = String(t.nome || a.turma || "").trim();
+  let serie = String(t.serie || a.serie || "").trim();
+  if (turma && serie && turma.toUpperCase() === serie.toUpperCase()) {
+    // tenta extrair série curta e turma
+    const m = turma.match(/^(\d+\s*[ªº°]?)\s*[\"“”']?\s*([A-Za-z0-9])?/i);
+    if (m) {
+      serie = m[1].replace(/\s+/g, "");
+      if (!/[ªº°]$/.test(serie)) serie += "ª";
+      turma = m[2] ? (serie + " " + m[2].toUpperCase()) : serie;
+    } else {
+      serie = ""; // não repetir
+    }
+  }
+  return { turma: turma || "—", serie: serie || "—" };
+}
+
+function gerarConteudoDocumento(id) {
+  const a = alunoAtual;
+  if (!a || typeof a !== "object") {
+    throw new Error("Sessão do aluno não encontrada. Entre novamente com o GO ID.");
+  }
+  const dataEmissao = formatarDataHoje();
+  const codigo = (typeof gerarCodigoAutenticacao === "function")
+    ? gerarCodigoAutenticacao()
+    : ("PE-" + Date.now().toString(36).toUpperCase());
+  const t = (a._turma && typeof a._turma === "object") ? a._turma : {};
+  const rs = rotulosTurmaSerie(a, t);
+  const escolaNome = (a.escola && a.escola !== "Unidade escolar")
+    ? a.escola
+    : (a.escolaNome || "Unidade escolar da rede estadual");
+  const makeQr = (typeof qrUrl === "function") ? qrUrl : (d =>
+    "https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=2&data=" + encodeURIComponent(d));
+
+  const tituloMap = {
+    boletim: "BOLETIM ESCOLAR",
+    "declaracao-matricula": "COMPROVANTE DE MATRÍCULA",
+    "frequencia-anual": "FREQUÊNCIA ANUAL"
+  };
+  const titulo = tituloMap[id] || "DOCUMENTO ESCOLAR";
+
+  salvarValidacaoDoc({
+    codigo,
+    tipo: titulo,
+    nome: a.nome || "",
+    matricula: String(a.matricula || ""),
+    emitidoEm: dataEmissao,
+    anoLetivo: a.anoLetivo || ANO_LETIVO,
+    escola: escolaNome
+  });
+
+  // Nome do arquivo para impressão/PDF: tipo-nome-codigo
+  const slug = (s) => String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
+    .slice(0, 60);
+  const tipoSlug = {
+    boletim: "boletim-escolar",
+    "declaracao-matricula": "comprovante-matricula",
+    "frequencia-anual": "frequencia-anual"
+  }[id] || slug(titulo);
+  ultimoDocMeta = {
+    tipo: titulo,
+    nome: a.nome || "aluno",
+    codigo,
+    arquivo: [tipoSlug, slug(a.nome || "aluno"), codigo].filter(Boolean).join("-")
+  };
+
+  const qrData = "PEQUI|" + codigo + "|" + (a.matricula || "") + "|" + dataEmissao;
+  const qrSrc = makeQr(qrData);
+  const cpfFmt = (typeof formatarCPF === "function") ? formatarCPF(a.cpf) : (a.cpf || "—");
+  const cel = (v) => (v == null || v === "" ? "—" : (typeof v === "number" ? Number(v).toFixed(1).replace(".", ",") : String(v)));
+
+  // ===== BOLETIM (modelo oficial SEDUC) =====
+  if (id === "boletim") {
+    const discs = a.disciplinas || [];
+    const rows = discs.map(d => `<tr>
+      <td class="col-disc">${escapeHTML(d.nome)}</td>
+      <td>${cel(d.b1)}</td><td>${d.f1 != null && Number(d.f1) !== 0 ? d.f1 : "—"}</td>
+      <td>${cel(d.b2)}</td><td>${d.f2 != null && Number(d.f2) !== 0 ? d.f2 : "—"}</td>
+      <td>${cel(d.b3)}</td><td>${d.f3 != null && Number(d.f3) !== 0 ? d.f3 : "—"}</td>
+      <td>${cel(d.b4)}</td><td>${d.f4 != null && Number(d.f4) !== 0 ? d.f4 : "—"}</td>
+      <td>${cel(d.ma)}</td>
+      <td>${cel(d.mf)}</td>
+      <td>${d.faltas != null ? d.faltas : "—"}</td>
+    </tr>`).join("");
+    const totalFaltas = discs.reduce((s, d) => s + Number(d.faltas || 0), 0);
+    let freq = "—";
+    if (a.frequenciaGeral != null && a.frequenciaGeral !== "") freq = a.frequenciaGeral + "%";
+    else if (discs.length) freq = Math.max(0, Math.round(100 - (totalFaltas / Math.max(discs.length * 20, 1)) * 100)) + "%";
+
+    return `<div class="doc-print bol-oficial" id="docPrintArea">
+      <div class="bol-top">
+        <div class="bol-top-left">
+          <img src="brasao-goias.svg" alt="" class="bol-logo" onerror="this.style.display='none'" />
+          <div>
+            <div class="bol-estado">ESTADO DE GOIÁS</div>
+            <div class="bol-seduc">SECRETARIA DE ESTADO DA EDUCAÇÃO</div>
+            <div class="bol-escola">${escapeHTML(escolaNome)}</div>
+          </div>
+        </div>
+        <div class="bol-top-right">
+          <div class="bol-titulo-doc">BOLETIM ESCOLAR</div>
+          <div class="bol-meta-doc">${escapeHTML(t.composicao || a.composicao || a.serie || "Ensino Médio")}</div>
+          <div class="bol-meta-doc">ANO: ${escapeHTML(String(a.anoLetivo || ANO_LETIVO))}</div>
+        </div>
+        <div class="bol-qr-box">
+          <img src="${qrSrc}" alt="QR ${escapeHTML(codigo)}" width="72" height="72" />
+          <span>${escapeHTML(codigo)}</span>
+        </div>
+      </div>
+      <div class="bol-info">
+        <div><b>NOME DO ALUNO(A):</b> ${escapeHTML(a.nome)}</div>
+        <div><b>SEXO:</b> ${escapeHTML(a.sexo || "—")}</div>
+        <div><b>N. CHAM.:</b> ${escapeHTML(a.nCham ?? "—")}</div>
+        <div><b>MATRÍCULA:</b> ${escapeHTML(a.matricula)}</div>
+        <div><b>CPF:</b> ${escapeHTML(cpfFmt)}</div>
+        <div><b>CÓD. INEP:</b> ${escapeHTML(a.inep || "—")}</div>
+        <div><b>EMISSÃO:</b> ${dataEmissao}</div>
+        <div><b>TURNO:</b> ${escapeHTML(a.turno || t.turno || "—")}</div>
+        <div><b>TURMA:</b> ${escapeHTML(rs.turma)}</div>
+        <div><b>SÉRIE:</b> ${escapeHTML(rs.serie)}</div>
+      </div>
+      <table class="bol-grid">
+        <thead>
+          <tr>
+            <th rowspan="2" class="col-disc">COMPONENTES CURRICULARES</th>
+            <th colspan="2">1º BIM.</th>
+            <th colspan="2">2º BIM.</th>
+            <th colspan="2">3º BIM.</th>
+            <th colspan="2">4º BIM.</th>
+            <th rowspan="2">MA</th>
+            <th rowspan="2">MÉDIA FINAL</th>
+            <th rowspan="2">FALTAS</th>
+          </tr>
+          <tr>
+            <th>N</th><th>F</th><th>N</th><th>F</th><th>N</th><th>F</th><th>N</th><th>F</th>
+          </tr>
+        </thead>
+        <tbody>${rows || "<tr><td colspan='12'>Sem lançamentos no período.</td></tr>"}</tbody>
+      </table>
+      <div class="bol-foot">
+        <div><span>% Frequência</span><strong>${freq}</strong></div>
+        <div><span>Total de Faltas</span><strong>${totalFaltas || 0}</strong></div>
+        <div><span>Faltas Justificadas</span><strong>—</strong></div>
+        <div><span>Resultado Final</span><strong>${escapeHTML(a.situacao || "Cursando")}</strong></div>
+      </div>
+      ${blocoAutenticidade(codigo, qrSrc, (a.municipio && a.municipio !== "—") ? a.municipio + " - GO" : "Goiás")}
+    </div>`;
+  }
+
+  const local = (a.municipio && a.municipio !== "—") ? a.municipio + " - GO" : "Goiás";
+  const extenso = dataPorExtenso(new Date());
+  const nasc = (typeof formatarData === "function") ? formatarData(a.dataNascimento) : (a.dataNascimento || "—");
+  const filiacao = [a.nomeMae, a.nomePai].filter(Boolean).join(" e ") || "—";
+
+  // ===== COMPROVANTE DE MATRÍCULA =====
+  if (id === "declaracao-matricula") {
+    return `<div class="doc-print decl" id="docPrintArea">
+      <header class="decl-head">
+        <img src="brasao-goias.svg" alt="" class="decl-brasao" onerror="this.style.display='none'" />
+        <p>ESTADO DE GOIÁS</p>
+        <p>SECRETARIA DE ESTADO DA EDUCAÇÃO</p>
+        <p class="decl-escola">${escapeHTML(escolaNome)}</p>
+      </header>
+      <h1 class="decl-titulo">COMPROVANTE DE MATRÍCULA</h1>
+      <div class="decl-texto">
+        <p>Declaramos, para os devidos fins, que o(a) aluno(a) <strong>${escapeHTML(a.nome)}</strong>${filiacao !== "—" ? ", filho(a) de <strong>" + escapeHTML(filiacao) + "</strong>" : ""}${nasc && nasc !== "—" ? ", nascido(a) em <strong>" + escapeHTML(nasc) + "</strong>" : ""}, matrícula nº <strong>${escapeHTML(a.matricula)}</strong>${a.cpf ? ", CPF <strong>" + escapeHTML(cpfFmt) + "</strong>" : ""}, está regularmente matriculado(a) nesta Unidade de Ensino, na turma <strong>${escapeHTML(rs.turma)}</strong>${rs.serie !== "—" && rs.serie.toUpperCase() !== rs.turma.toUpperCase() ? ", série <strong>" + escapeHTML(rs.serie) + "</strong>" : ""}, turno <strong>${escapeHTML(a.turno || t.turno || "—")}</strong>, ano letivo de <strong>${escapeHTML(String(a.anoLetivo || ANO_LETIVO))}</strong>, encontrando-se na situação <strong>${escapeHTML(a.situacao || "Matriculado")}</strong>.</p>
+        <p>Por ser verdade, firmamos a presente declaração.</p>
+        <p class="decl-local">Secretaria da <strong>${escapeHTML(escolaNome)}</strong>, em ${escapeHTML(local)}, ${escapeHTML(extenso)}.</p>
+      </div>
+      <div class="decl-sign">
+        <div class="decl-linha"></div>
+        <p>Secretaria da Unidade Escolar</p>
+      </div>
+      ${blocoAutenticidade(codigo, qrSrc, local)}
+    </div>`;
+  }
+
+  // ===== DECLARAÇÃO DE FREQUÊNCIA =====
+  if (id === "frequencia-anual") {
+    const discs = a.disciplinas || [];
+    const totalFaltas = discs.reduce((s, d) => s + Number(d.faltas || 0), 0);
+    let freq = "—";
+    if (a.frequenciaGeral != null && a.frequenciaGeral !== "") freq = String(a.frequenciaGeral).replace("%", "") + "%";
+    else if (discs.length) freq = Math.max(0, Math.round(100 - (totalFaltas / Math.max(discs.length * 20, 1)) * 100)) + "%";
+
+    return `<div class="doc-print decl" id="docPrintArea">
+      <header class="decl-head">
+        <img src="brasao-goias.svg" alt="" class="decl-brasao" onerror="this.style.display='none'" />
+        <p>ESTADO DE GOIÁS</p>
+        <p>SECRETARIA DE ESTADO DA EDUCAÇÃO</p>
+        <p class="decl-escola">${escapeHTML(escolaNome)}</p>
+      </header>
+      <h1 class="decl-titulo">DECLARAÇÃO DE FREQUÊNCIA</h1>
+      <div class="decl-texto">
+        <p>Declaramos, para os devidos fins de direito, que o(a) aluno(a) <strong>${escapeHTML(a.nome)}</strong>${filiacao !== "—" ? ", filho(a) de <strong>" + escapeHTML(filiacao) + "</strong>" : ""}, matrícula nº <strong>${escapeHTML(a.matricula)}</strong>, está regularmente matriculado(a) nesta Unidade de Ensino, na turma <strong>${escapeHTML(rs.turma)}</strong>${rs.serie !== "—" && rs.serie.toUpperCase() !== rs.turma.toUpperCase() ? ", série <strong>" + escapeHTML(rs.serie) + "</strong>" : ""}, turno <strong>${escapeHTML(a.turno || t.turno || "—")}</strong>, com frequência de <strong>${freq}</strong> no ano letivo de <strong>${escapeHTML(String(a.anoLetivo || ANO_LETIVO))}</strong> (total de faltas registradas: <strong>${totalFaltas}</strong>).</p>
+        <p>Por ser verdade, firmamos a presente declaração.</p>
+        <p class="decl-local">Secretaria da <strong>${escapeHTML(escolaNome)}</strong>, em ${escapeHTML(local)}, ${escapeHTML(extenso)}.</p>
+      </div>
+      <div class="decl-sign">
+        <div class="decl-linha"></div>
+        <p>Secretaria da Unidade Escolar</p>
+      </div>
+      ${blocoAutenticidade(codigo, qrSrc, local)}
+    </div>`;
+  }
+
+  return `<div class="doc-print" id="docPrintArea"><p>Documento indisponível.</p></div>`;
+}
 
 function printDocument() {
   const area = document.getElementById("docPrintArea");
   if (!area) return;
-  const isBoletim = area.classList.contains("bol-oficial");
-  const pageSize = isBoletim ? "A4 landscape" : "A4 portrait";
-  const printWindow = window.open("", "_blank");
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Boletim Escolar — Pequi Express</title>
-      <style>
-        @page { size: ${pageSize}; margin: 6mm; }
-        body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #111; font-size: 11px; }
-        table { border-collapse: collapse; width: 100%; }
-        img { max-height: 52px; width: auto; }
-        .bol-oficial { max-width: none; border: none; padding: 2mm 4mm; font-size: 8.5pt; }
-        .bol-cab { display: flex; align-items: flex-start; gap: 12px; border-bottom: 2px solid #1a5f9e; padding-bottom: 8px; margin-bottom: 8px; }
-        .bol-cab .esq { flex: 1; } .bol-cab .dir { text-align: right; flex: 1; }
-        .bol-cab h1 { font-size: 11pt; color: #0d3a66; margin: 0 0 2px; }
-        .bol-cab h2 { font-size: 10pt; margin: 0; color: #0d3a66; }
-        .bol-cab p { margin: 0; font-size: 8pt; color: #444; }
-        .bol-dados { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px 10px; margin-bottom: 6px; font-size: 8pt; }
-        .bol-table th, .bol-table td { border: 1px solid #333; padding: 1px 2px; text-align: center; font-size: 7.5pt; }
-        .bol-table th { background: #e8eef5; }
-        .bol-table td.disc { text-align: left; font-weight: 600; }
-        .bol-rodape { display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid #333; font-size: 8pt; margin-top: 4px; }
-        .bol-rodape div { border-right: 1px solid #333; padding: 3px 4px; text-align: center; }
-        .bol-rodape div:last-child { border-right: none; }
-        .bol-rodape strong { display: block; font-size: 7.5pt; color: #555; }
-      </style>
-    </head>
-    <body>${area.innerHTML}</body>
-    </html>
-  `);
-  printWindow.document.close();
-  setTimeout(() => printWindow.print(), 350);
-  showToast("Boletim pronto para impressão ou salvar em PDF");
-}
+  const isBol = area.classList.contains("bol-oficial");
+  const pageSize = isBol ? "A4 landscape" : "A4 portrait";
+  const win = window.open("", "_blank");
+  if (!win) {
+    showToast("Permita pop-ups para imprimir ou salvar em PDF");
+    return;
+  }
+  // Nome sugerido ao salvar PDF (o navegador usa o <title>)
+  let nomeArquivo = "documento-pequi-express";
+  if (ultimoDocMeta && ultimoDocMeta.arquivo) {
+    nomeArquivo = ultimoDocMeta.arquivo;
+  } else if (alunoAtual) {
+    const slug = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 50);
+    const tipo = (documentoAtual === "boletim") ? "boletim-escolar"
+      : (documentoAtual === "declaracao-matricula") ? "comprovante-matricula"
+      : (documentoAtual === "frequencia-anual") ? "frequencia-anual" : "documento";
+    nomeArquivo = tipo + "-" + slug(alunoAtual.nome || "aluno");
+  }
+  // Fallback: tenta ler código do QR impresso na área
+  if (!ultimoDocMeta) {
+    const codEl = area.querySelector(".bol-qr-box span, .bol-auth-line strong");
+    if (codEl && /PE-[A-Z0-9]+/i.test(codEl.textContent)) {
+      nomeArquivo += "-" + codEl.textContent.trim().toUpperCase().match(/PE-[A-Z0-9]+/i)[0];
+    }
+  }
 
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/>
+<title>${nomeArquivo}</title>
+<style>
+@page { size: ${pageSize}; margin: 8mm 10mm; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 10px;
+.decl { font-family: "Times New Roman", Times, serif; color: #111; }
+.decl-head { text-align: center; border-bottom: 1.5px solid #111; padding-bottom: 6px; }
+.decl-brasao { height: 52px; }
+.decl-head p { margin: 0; font-weight: 700; font-size: 11pt; text-transform: uppercase; }
+.decl-escola { text-decoration: underline; }
+.decl-titulo { text-align: center; font-size: 16pt; text-decoration: underline; margin: 22px 0 16px; letter-spacing: .04em; }
+.decl-texto { font-size: 12pt; line-height: 1.5; text-align: justify; }
+.decl-texto p { margin: 0 0 10px; text-indent: 1.8em; }
+.decl-local { text-indent: 0; }
+.decl-sign { text-align: center; width: 240px; margin: 28px auto 8px; }
+.decl-linha { border-top: 1px solid #111; }
+.decl-sign p { margin: 4px 0 0; font-size: 11pt; }
+.decl-auth { display: flex; align-items: center; gap: 10px; border-top: 1px solid #111; margin-top: 16px; padding-top: 8px; font-family: Arial, sans-serif; }
+.decl-selo { width: 64px; height: 64px; border-radius: 50%; border: 2px solid #14532d; color: #14532d; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 7px; transform: rotate(-8deg); }
+.decl-selo strong { font-size: 9px; }
+.decl-auth-txt { flex: 1; font-size: 8.5pt; }
+.decl-auth-txt p { margin: 0 0 3px; }
+.decl-qr { width: 64px; height: 64px; }
+ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.bol-oficial, .doc-formal { width: 100%; }
+.bol-top { display: flex; align-items: flex-start; gap: 10px; border-bottom: 2px solid #1a5f9e; padding-bottom: 6px; margin-bottom: 6px; }
+.bol-top-left { display: flex; gap: 8px; align-items: center; flex: 1; }
+.bol-logo { height: 42px; width: auto; }
+.bol-estado { font-weight: 700; font-size: 11px; color: #0d3a66; }
+.bol-seduc { font-size: 9px; color: #0d3a66; font-weight: 600; }
+.bol-escola { font-size: 9px; color: #333; }
+.bol-top-right { text-align: right; min-width: 140px; }
+.bol-titulo-doc { font-weight: 700; font-size: 12px; color: #0d3a66; }
+.bol-meta-doc { font-size: 9px; color: #444; }
+.bol-qr-box { text-align: center; font-size: 8px; }
+.bol-qr-box img { display: block; width: 64px; height: 64px; margin: 0 auto 2px; }
+.bol-info { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px 8px; font-size: 9px; margin-bottom: 6px; }
+.bol-info b { color: #333; }
+.bol-grid { width: 100%; border-collapse: collapse; font-size: 8.5px; table-layout: fixed; }
+.bol-grid th, .bol-grid td { border: 1px solid #333; padding: 2px 3px; text-align: center; }
+.bol-grid th { background: #d6e4f0; font-weight: 700; }
+.bol-grid .col-disc, .bol-grid td.col-disc { text-align: left; font-weight: 600; width: 22%; font-size: 8px; }
+.bol-foot { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #333; margin-top: 4px; font-size: 9px; }
+.bol-foot div { border-right: 1px solid #333; padding: 4px 6px; text-align: center; }
+.bol-foot div:last-child { border-right: none; }
+.bol-foot span { display: block; font-size: 8px; color: #555; }
+.bol-auth-line { margin: 4px 0 0; font-size: 8px; color: #444; text-align: right; }
+.formal-body { font-size: 11px; line-height: 1.45; margin-top: 10px; }
+.formal-meta { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10px; }
+.formal-meta td { border: 1px solid #ccc; padding: 6px 8px; }
+.formal-meta-wide td { padding: 7px 10px; }
+.freq-destaque { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+.freq-destaque div { border: 1px solid #1a5f9e; border-radius: 6px; padding: 10px; text-align: center; }
+.freq-destaque span { display: block; font-size: 9px; color: #555; }
+.freq-destaque strong { font-size: 16px; color: #0d3a66; }
+.formal-obs { font-size: 9px; color: #555; margin-top: 12px; border-left: 3px solid #1a9b65; padding-left: 8px; }
+</style></head><body>${area.outerHTML}</body></html>`);
+  win.document.close();
+  setTimeout(() => { try { win.focus(); win.print(); } catch (e) {} }, 450);
+  showToast("Documento pronto para impressão ou salvar em PDF");
+}
 
 function showAjuda() {
   showSection("ajuda");

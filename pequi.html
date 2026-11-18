@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Pequi Express - Portal de Boletim Escolar do Estado de Goiás">
-  <title>Pequi Express | Portal de Boletim Escolar</title>
+  <title>Pequi Express | Serviços digitais de Goiás</title>
   <link rel="icon" type="image/svg+xml" href="brasao-goias.svg">
   <link rel="stylesheet" href="pequi-styles.css">
+  <link rel="stylesheet" href="claria-widget.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
@@ -42,7 +43,7 @@
         <img src="brasao-goias.svg" alt="Brasão do Estado de Goiás" class="brasao" width="48" height="64">
         <div class="brand-text">
           <span class="brand-title">Pequi Express</span>
-          <span class="brand-sub">Portal de Boletim Escolar</span>
+          <span class="brand-sub">Serviços digitais · Educação</span>
         </div>
       </div>
 
@@ -74,14 +75,14 @@
           <div class="hero-left">
             <div class="badge-live">
               <span class="pulse"></span>
-              Portal de Boletim Escolar
+              Governo de Goiás · Serviços digitais
             </div>
             <h1 class="hero-title">
-              Seu boletim escolar<br>
-              <span class="highlight">em um clique</span>
+              Documentos escolares<br>
+              <span class="highlight">oficiais e verificáveis</span>
             </h1>
             <p class="hero-desc">
-              Consulte e imprima o boletim escolar com segurança pela Identidade Digital GO ID.
+              Emita boletim, comprovante de matrícula e declaração de frequência com QR Code e selo de autenticidade. Acesso pela Identidade Digital GO ID.
             </p>
             <div class="hero-stats">
               <div class="stat">
@@ -121,37 +122,63 @@
         </div>
       </div>
 
-      <!-- Como funciona — foco exclusivo no boletim -->
+      <!-- Validação pública de documentos -->
+      <div class="validar-section" id="validarSection">
+        <div class="container">
+          <div class="validar-card">
+            <div class="validar-info">
+              <p class="validar-kicker">Autenticidade</p>
+              <h2>Validar documento</h2>
+              <p>Confira se o boletim, o comprovante de matrícula ou a declaração de frequência foram emitidos neste portal. Use o código impresso ou a câmera para ler o QR.</p>
+              <ul class="validar-bullets">
+                <li>Código único no formato PE-XXXXXX</li>
+                <li>QR Code no canto do documento</li>
+                <li>Selo “documento autêntico / não contém rasuras”</li>
+              </ul>
+            </div>
+            <div class="validar-form">
+              <label for="validarCodigo">Código de autenticação</label>
+              <div class="validar-row">
+                <input type="text" id="validarCodigo" placeholder="Ex.: PE-AB12CD" maxlength="16" autocomplete="off" />
+                <button type="button" class="btn btn-primary" id="btnValidarDoc" onclick="validarDocumentoPublico()">Validar</button>
+              </div>
+              <button type="button" class="btn btn-outline btn-block" id="btnScanQR" onclick="abrirScannerQR()">Ler QR Code com a câmera</button>
+              <div id="qrScannerBox" class="qr-scanner hidden">
+                <video id="qrVideo" playsinline muted></video>
+                <button type="button" class="btn btn-outline btn-sm" onclick="fecharScannerQR()">Fechar câmera</button>
+              </div>
+              <div id="validarResultado" class="validar-resultado hidden" role="status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="services-preview">
         <div class="container">
-          <h2 class="section-title">Como consultar o boletim</h2>
+          <p class="section-kicker">Área da Educação</p>
+          <h2 class="section-title">Serviços disponíveis agora</h2>
+          <p class="section-lead">Novas áreas do governo entram depois. Hoje o portal emite os documentos escolares abaixo, todos com validação.</p>
           <div class="services-grid steps-grid">
             <div class="service-card" data-animate>
               <div class="service-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
-              <h3>1. Entre com GO ID</h3>
-              <p>Acesse com CPF e senha da Identidade Digital de Goiás</p>
+              <h3>Boletim escolar</h3>
+              <p>Notas e faltas no modelo da unidade, com código de autenticação.</p>
             </div>
             <div class="service-card" data-animate>
               <div class="service-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
               </div>
-              <h3>2. Abra o boletim</h3>
-              <p>Notas, faltas e médias do ano letivo em um só lugar</p>
+              <h3>Comprovante de matrícula</h3>
+              <p>Declaração formal de vínculo, com assinatura e selo digital.</p>
             </div>
             <div class="service-card" data-animate>
               <div class="service-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               </div>
-              <h3>3. Imprima ou salve PDF</h3>
-              <p>Documento no padrão institucional da SEDUC-GO</p>
+              <h3>Declaração de frequência</h3>
+              <p>Percentual anual, nome do aluno e texto no padrão de secretaria.</p>
             </div>
           </div>
         </div>
@@ -190,8 +217,8 @@
           </div>
         </div>
 
-        <h2 class="section-title" style="text-align:left;margin-bottom:1rem">Seu boletim escolar</h2>
-        <p class="dashboard-hint">Clique no card abaixo para visualizar e imprimir o boletim do ano letivo.</p>
+        <h2 class="section-title" style="text-align:left;margin-bottom:1rem">Serviços disponíveis</h2>
+        <p class="dashboard-hint">Boletim, comprovante de matrícula e frequência anual — com QR Code e validação.</p>
         <div class="docs-grid" id="docsGrid">
           <!-- card do boletim gerado via JS -->
         </div>
@@ -270,6 +297,10 @@
             <summary>A sessão expira sozinha?</summary>
             <p>Sim. Por segurança a sessão do Pequi Express expira após 20 minutos ou 10 minutos de inatividade. Basta entrar novamente com o GO ID.</p>
           </details>
+          <details>
+            <summary>O que é a ClarIA?</summary>
+            <p>A <strong>ClarIA</strong> é a assistente virtual oficial do Pequi Express (Governo de Goiás). Use o botão verde flutuante para tirar dúvidas sobre boletim, GO ID, médias e também receber ajuda para organizar estudos e rotina. Desenvolvida pela Sykara.</p>
+          </details>
         </div>
       </div>
     </section>
@@ -292,7 +323,7 @@
           <svg class="icon-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
           </svg>
-          <span>Imprimir boletim</span>
+          <span>Imprimir / salvar PDF</span>
         </button>
       </div>
     </div>
@@ -308,14 +339,18 @@
         <img src="brasao-goias.svg" alt="Brasão do Estado de Goiás" class="brasao-sm" width="36" height="48">
         <div>
           <strong>Pequi Express</strong>
-          <span>Portal de Boletim Escolar · GO 2026</span>
+          <span>Pequi Express · Educação · GO 2026</span>
         </div>
       </div>
-      <p class="footer-copy">© 2026 Portal de Boletim Escolar. Todos os direitos reservados.</p>
+      <p class="footer-copy">© 2026 Pequi Express · Governo de Goiás. Documentos com autenticação digital.</p>
     </div>
   </footer>
 
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script src="pequi-data.js"></script>
   <script src="pequi-app.js"></script>
+  <script src="claria-config.js"></script>
+  <script src="claria-widget.js"></script>
 </body>
 </html>

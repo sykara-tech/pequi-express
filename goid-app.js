@@ -172,31 +172,37 @@ function emitirSsoToken(user) {
   return token;
 }
 
-function obterReturnPequi() {
+function obterDestinoRetorno() {
   const params = new URLSearchParams(window.location.search);
-  const ret = params.get("return");
-  if (ret === "pequi") return "pequi.html";
+  const ret = (params.get("return") || "").toLowerCase().trim();
+  if (ret === "claria" || ret === "pequi") return "pequi.html";
+  if (ret && (ret.endsWith(".html") || ret.startsWith("http") || ret.startsWith("/"))) return ret;
+  try {
+    const saved = sessionStorage.getItem("claria_return");
+    if (saved) return saved;
+  } catch {}
   return "pequi.html";
 }
 
-function voltarAoPequi(user) {
-  if (!user.matricula) {
-    showToast("Informe a matrícula escolar no perfil antes de acessar o boletim.");
-    atualizarHeaderUser(user);
-    preencherDashboard(user);
-    const pn = document.getElementById("perfilNome");
-    if (pn) {
-      pn.value = user.nome || "";
-      document.getElementById("perfilEmail").value = user.email || "";
-      document.getElementById("perfilMatricula").value = user.matricula || "";
-    }
-    showScreen("app");
-    showSection("perfil");
-    return;
-  }
+function redirecionarAposLogin(user) {
+  const destino = obterDestinoRetorno() || "pequi.html";
   emitirSsoToken(user);
   showToast("Retornando ao Pequi Express...");
-  window.location.href = obterReturnPequi() + "?sso=1&t=" + Date.now();
+  const url = destino.includes("?")
+    ? destino + "&sso=1&t=" + Date.now()
+    : destino + "?sso=1&t=" + Date.now();
+  window.location.href = url;
+}
+
+function voltarAoPequi(user) {
+  // Sem matrícula: ainda retorna ao Pequi (o portal orienta o usuário)
+  if (!user.matricula) {
+    emitirSsoToken(user);
+    showToast("Retornando ao Pequi Express...");
+    window.location.href = "pequi.html?sso=1&t=" + Date.now();
+    return;
+  }
+  redirecionarAposLogin(user);
 }
 
 function carregarSessao() {
